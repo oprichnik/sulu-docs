@@ -40,16 +40,21 @@ directory of your project and is executed when running ``bin/console phpcr:migra
     use Symfony\Component\DependencyInjection\ContainerAwareInterface;
     use Symfony\Component\DependencyInjection\ContainerAwareTrait;
 
-    class Version202101012015 implements VersionInterface, ContainerAwareInterface
+    class Version202206091200 implements VersionInterface, ContainerAwareInterface
     {
         use ContainerAwareTrait;
 
         public function up(SessionInterface $session)
         {
             $liveSession = $this->container->get('sulu_document_manager.live_session');
+            $localizations = $this->container->get('sulu_core.webspace.webspace_manager')->getAllLocalizations();
 
-            $this->upgrade($session);
-            $this->upgrade($liveSession);
+            /** @var Localization $localization */
+            foreach ($localizations as $localization) {
+
+                $this->upgrade($session,$localization);
+                $this->upgrade($liveSession,$localization);
+            }
 
             $session->save();
             $liveSession->save();
@@ -58,9 +63,13 @@ directory of your project and is executed when running ``bin/console phpcr:migra
         public function down(SessionInterface $session)
         {
             $liveSession = $this->container->get('sulu_document_manager.live_session');
+            $localizations = $this->container->get('sulu_core.webspace.webspace_manager')->getAllLocalizations();
 
-            $this->downgrade($session);
-            $this->downgrade($liveSession);
+            /** @var Localization $localization */
+            foreach ($localizations as $localization) {
+                $this->downgrade($session,$localization);
+                $this->downgrade($liveSession,$localization);
+            }
 
             $session->save();
             $liveSession->save();
@@ -69,29 +78,17 @@ directory of your project and is executed when running ``bin/console phpcr:migra
         /**
          * Upgrade all nodes in given session.
          */
-        private function upgrade(SessionInterface $session)
+        private function upgrade(SessionInterface $session, Localization $localization)
         {
-            $queryManager = $session->getWorkspace()->getQueryManager();
-            $localizations = $this->container->get('sulu_core.webspace.webspace_manager')->getAllLocalizations();
+            /** @var Row $row */
+            foreach ($this->getRowsToMigrate($session, $localization) as $row) {
+                $node = $row->getNode();
+                $localizedOldPropertyName = \sprintf('i18n:%s-oldPropertyName', $localization->getLocale());
+                $localizedNewPropertyName = \sprintf('i18n:%s-newPropertyName', $localization->getLocale());
 
-            /** @var Localization $localization */
-            foreach ($localizations as $localization) {
-                $pageCondition = '([jcr:mixinTypes] = "sulu:page" OR [jcr:mixinTypes] = "sulu:home")';
-                $templateCondition = \sprintf('([i18n:%s-template] = "my-template-key")', $localization->getLocale());
-
-                $query = 'SELECT * FROM [nt:unstructured] WHERE (' . $templateCondition . 'AND' . $pageCondition . ')';
-                $rows = $queryManager->createQuery($query, 'JCR-SQL2')->execute();
-
-                /** @var Row $row */
-                foreach ($rows as $row) {
-                    $node = $row->getNode();
-                    $localizedOldPropertyName = \sprintf('i18n:%s-oldPropertyName', $localization->getLocale());
-                    $localizedNewPropertyName = \sprintf('i18n:%s-newPropertyName', $localization->getLocale());
-
-                    if ($node->hasProperty($localizedOldPropertyName)) {
-                        $node->setProperty($localizedNewPropertyName, $node->getPropertyValue($localizedOldPropertyName));
-                        $node->setProperty($localizedOldPropertyName, null);
-                    }
+                if ($node->hasProperty($localizedOldPropertyName)) {
+                    $node->setProperty($localizedNewPropertyName, $node->getPropertyValue($localizedOldPropertyName));
+                    $node->setProperty($localizedOldPropertyName, null);
                 }
             }
         }
@@ -99,31 +96,36 @@ directory of your project and is executed when running ``bin/console phpcr:migra
         /**
          * Downgrades all nodes in given session.
          */
-        private function downgrade(SessionInterface $session)
+        private function downgrade(SessionInterface $session, Localization $localization)
         {
-            $queryManager = $session->getWorkspace()->getQueryManager();
-            $localizations = $this->container->get('sulu_core.webspace.webspace_manager')->getAllLocalizations();
+            /** @var Row $row */
+            foreach ($this->getRowsToMigrate($session, $localization) as $row) {
+                $node = $row->getNode();
+                $localizedOldPropertyName = \sprintf('i18n:%s-oldPropertyName', $localization->getLocale());
+                $localizedNewPropertyName = \sprintf('i18n:%s-newPropertyName', $localization->getLocale());
 
-            /** @var Localization $localization */
-            foreach ($localizations as $localization) {
-                $pageCondition = '([jcr:mixinTypes] = "sulu:page" OR [jcr:mixinTypes] = "sulu:home")';
-                $templateCondition = \sprintf('([i18n:%s-template] = "my-template-key")', $localization->getLocale());
-
-                $query = 'SELECT * FROM [nt:unstructured] WHERE (' . $templateCondition . 'AND' . $pageCondition . ')';
-                $rows = $queryManager->createQuery($query, 'JCR-SQL2')->execute();
-
-                /** @var Row $row */
-                foreach ($rows as $row) {
-                    $node = $row->getNode();
-                    $localizedOldPropertyName = \sprintf('i18n:%s-oldPropertyName', $localization->getLocale());
-                    $localizedNewPropertyName = \sprintf('i18n:%s-newPropertyName', $localization->getLocale());
-
-                    if ($node->hasProperty($localizedNewPropertyName)) {
-                        $node->setProperty($localizedOldPropertyName, $node->getPropertyValue($localizedNewPropertyName));
-                        $node->setProperty($localizedNewPropertyName, null);
-                    }
+                if ($node->hasProperty($localizedNewPropertyName)) {
+                    $node->setProperty($localizedOldPropertyName, $node->getPropertyValue($localizedNewPropertyName));
+                    $node->setProperty($localizedNewPropertyName, null);
                 }
             }
+        }
+
+        /**
+        * Creates a generator that generates all rows that have to be migrated.
+        *
+        * @return \Generator
+        */
+        private function getRowsToMigrate(SessionInterface $session, Localization $localization)
+        {
+            $queryManager = $session->getWorkspace()->getQueryManager();
+            
+            $pageCondition = '([jcr:mixinTypes] = "sulu:page" OR [jcr:mixinTypes] = "sulu:home")';
+            $templateCondition = \sprintf('([i18n:%s-template] = "my-template-key")', $localization->getLocale());
+
+            $query = 'SELECT * FROM [nt:unstructured] WHERE (' . $templateCondition . 'AND' . $pageCondition . ')';
+
+            yield from $queryManager->createQuery($query, 'JCR-SQL2')->execute();
         }
     }
 

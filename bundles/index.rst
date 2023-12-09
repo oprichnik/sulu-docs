@@ -25,9 +25,10 @@ documented the most important ones.
     preview/index
     route/index
     search
-    security
+    security/index
     snippet
     tag
+    trash
     website/index
 
 When you get in touch with another bundle of Sulu, which is not documented in

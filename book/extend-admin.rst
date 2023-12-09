@@ -131,7 +131,8 @@ property, should it be included in a search and so on. In addition to that it is
 a type, which describes how to format the content (e.g. a type of `datetime` will make sure that the date is displayed
 correctly based on the localization of the user).
 
-XML files are used to define this metadata. See an example for such a file below:
+XML files are used to define this metadata. By default, these list configuration XML files are located in the
+``config/lists`` directory of your project and an example looks like this:
 
 .. code-block:: xml
 
@@ -217,36 +218,12 @@ shows a controller doing what has just been described.
      */
     class EventController implements ClassResourceInterface
     {
-        /**
-         * @var ViewHandlerInterface
-         */
-        private $viewHandler;
-
-        /**
-         * @var FieldDescriptorFactoryInterface
-         */
-        private $fieldDescriptorFactory;
-
-        /**
-         * @var DoctrineListBuilderFactoryInterface
-         */
-        private $listBuilderFactory;
-
-        /**
-         * @var RestHelperInterface
-         */
-        private $restHelper;
-
         public function __construct(
-            ViewHandlerInterface $viewHandler,
-            FieldDescriptorFactoryInterface $fieldDescriptorFactory,
-            DoctrineListBuilderFactoryInterface $listBuilderFactory,
-            RestHelperInterface $restHelper
+           private ViewHandlerInterface $viewHandler,
+           private FieldDescriptorFactoryInterface $fieldDescriptorFactory,
+           private DoctrineListBuilderFactoryInterface $listBuilderFactory,
+           private RestHelperInterface $restHelper
         ) {
-            $this->viewHandler = $viewHandler;
-            $this->fieldDescriptorFactory = $fieldDescriptorFactory;
-            $this->listBuilderFactory = $listBuilderFactory;
-            $this->restHelper = $restHelper;
         }
 
         public function cgetAction(): Response
@@ -317,7 +294,7 @@ This is done by using the ``sulu_admin.resources`` configuration. The following 
                     detail: app.get_event
 
 The configuration makes use of the route names you have seen listed above by the `debug:router` command. For both
-variants of the URL (``/admin/api/events`` and ``/admin/api/events{id}``) one representative is used as a proxy for the
+variants of the URL (``/admin/api/events`` and ``/admin/api/events/{id}``) one representative is used as a proxy for the
 list and detail URL - whereby the detail URL has to be the one including the ID.
 
 Admin class
@@ -358,14 +335,8 @@ because of the autoconfigure feature of Symfony:
 
     class EventAdmin extends Admin
     {
-        /**
-         * @var ViewBuilderFactoryInterface
-         */
-        private $viewBuilderFactory;
-
-        public function __construct(ViewBuilderFactoryInterface $viewBuilderFactory)
+        public function __construct(private ViewBuilderFactoryInterface $viewBuilderFactory)
         {
-            $this->viewBuilderFactory = $viewBuilderFactory;
         }
 
         public function configureNavigationItems(NavigationItemCollection $navigationItemCollection): void
@@ -422,14 +393,8 @@ items looks like this:
     {
         const EVENT_LIST_VIEW = 'app.events_list';
 
-        /**
-         * @var ViewBuilderFactoryInterface
-         */
-        private $viewBuilderFactory;
-
-        public function __construct(ViewBuilderFactoryInterface $viewBuilderFactory)
+        public function __construct(private ViewBuilderFactoryInterface $viewBuilderFactory)
         {
-            $this->viewBuilderFactory = $viewBuilderFactory;
         }
 
         // ...
@@ -514,7 +479,8 @@ how to render the information. Doctrine already gives us some information about 
 is a string, but Sulu still does not know how to render this information. A string could represented e.g. in a simple
 ``input`` field, in a ``textarea`` or in a rich text editor. That is why we need more information in separate XML file.
 
-The following XML snippet shows how this metadata could be written:
+Form configuration XML files are located in the ``config/forms`` directory of your project by default and look similar
+to the following example:
 
 .. code-block:: xml
 
@@ -564,6 +530,10 @@ has a few attributes:
 - ``mandatory`` defines if the field is required in order for the form to be submitted.
 - ``colspan`` allows to define the width of the field. A value of ``12`` means that the entire available width is used,
   using smaller numbers result in an accordingly smaller field.
+- ``disabledCondition`` allows to define a condition to render the field as disabled. It works the
+  same way like for :ref:`template properties <templates-properties-visible-disabled-conditions>`.
+- ``visibleCondition`` allows to define a condition to show or hide the field. It works the
+  same way like for :ref:`template properties <templates-properties-visible-disabled-conditions>`.
 
 .. note::
 
@@ -632,14 +602,8 @@ The following code applies all of the mentioned concepts:
         const EVENT_ADD_FORM_VIEW = 'app.event_add_form';
         const EVENT_EDIT_FORM_VIEW = 'app.event_edit_form';
 
-        /**
-         * @var ViewBuilderFactoryInterface
-         */
-        private $viewBuilderFactory;
-
-        public function __construct(ViewBuilderFactoryInterface $viewBuilderFactory)
+        public function __construct(private ViewBuilderFactoryInterface $viewBuilderFactory)
         {
-            $this->viewBuilderFactory = $viewBuilderFactory;
         }
 
         public function configureViews(ViewCollection $viewCollection): void

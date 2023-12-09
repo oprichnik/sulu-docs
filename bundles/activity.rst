@@ -1,7 +1,7 @@
 ActivityBundle
 ==============
 
-The ActivityBundle implements is responsible for recording activities that happen in the application and allows
+The ActivityBundle is responsible for recording activities that happen in the application and allows
 developer to listen for changes and other events that happen in the system.
 
 Configuration
@@ -38,14 +38,7 @@ sends an email when a page with a specific template is created in the applicatio
 
     class SendPageCreatedMailSubscriber implements EventSubscriberInterface
     {
-        /**
-         * @var MailerInterface $mailer
-         */
-        private $mailer;
-
-        public function __construct(MailerInterface $mailer) {
-            $this->mailer = $mailer;
-        }
+        public function __construct(private MailerInterface $mailer) { }
 
         public static function getSubscribedEvents()
         {
@@ -88,20 +81,10 @@ bundle and could look like this:
 
     class BookCreatedEvent extends DomainEvent
     {
-        /**
-         * @var Book
-         */
-        private $book;
-
-        /**
-         * @param mixed[] $payload
-         */
         public function __construct(
-            Book $book
+            private Book $book
         ) {
             parent::__construct();
-
-            $this->book = $book;
         }
 
         public function getEventType(): string
@@ -141,20 +124,11 @@ event. After implementing your event, you can dispatch it in your code using one
 
     class BookService
     {
-        /**
-         * @var EntityManagerInterface
-         */
-        private $entityManager;
+        private EntityManagerInterface $entityManager;
 
-        /**
-         * @var DomainEventDispatcherInterface
-         */
-        private $domainEventDispatcher;
+        private DomainEventDispatcherInterface $domainEventDispatcher;
 
-        /**
-         * @var DomainEventCollectorInterface
-         */
-        private $domainEventCollector;
+        private DomainEventCollectorInterface $domainEventCollector;
 
         public function createBook(array $data): Book
         {
